@@ -213,7 +213,7 @@ private struct ThreadComposer: View {
         }
         .padding(Self.padding)
         // Concentric: the corner circles' radius plus the padding around them.
-        .edenGlass(in: .rect(cornerRadius: Self.button / 2 + Self.padding))
+        .glassEffect(.regular, in: .rect(cornerRadius: Self.button / 2 + Self.padding))
         .acceptsAttachments($attachments)
     }
 
@@ -342,7 +342,7 @@ private struct FooterCapsule: ViewModifier {
         content
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .edenGlass(in: .capsule)
+            .glassEffect(.regular, in: .capsule)
     }
 }
 
@@ -575,7 +575,7 @@ struct TranscriptView: View {
                 }
                 .buttonStyle(.plain)
                 // Clear glass, not the accent: the tint is for Send.
-                .edenGlass(in: .capsule, interactive: true)
+                .glassEffect(.regular.interactive(), in: .capsule)
                 .padding(.bottom, 12)
                 // Centered in the part the panel leaves visible.
                 .padding(.trailing, panelInset)

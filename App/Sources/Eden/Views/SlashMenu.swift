@@ -148,7 +148,7 @@ private struct SlashMenu: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .edenGlass(in: .rect(cornerRadius: 18))
+        .glassEffect(.regular, in: .rect(cornerRadius: 18))
         .fixedSize(horizontal: false, vertical: true)
     }
 }

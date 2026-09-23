@@ -90,7 +90,6 @@ private struct AppearanceSettings: View {
     @AppStorage(Preferences.diffColors) private var diffColors = DiffColors.redGreen
     @AppStorage(Preferences.terminalTranslucent) private var terminalTranslucent = true
     @AppStorage(Preferences.terminalOpacity) private var terminalOpacity = 0.8
-    @AppStorage(Preferences.glassOpacity) private var glassOpacity = 0.0
 
     var body: some View {
         Form {
@@ -113,29 +112,6 @@ private struct AppearanceSettings: View {
                     }
                 }
                 .padding(.vertical, 6)
-            }
-            Section {
-                LabeledContent("Opacity") {
-                    HStack(spacing: 8) {
-                        Slider(value: $glassOpacity, in: 0...1) {
-                            Text("Glass opacity")
-                        } minimumValueLabel: {
-                            Image(systemName: "circle.dotted")
-                        } maximumValueLabel: {
-                            Image(systemName: "circle.fill")
-                        }
-                        .labelsHidden()
-                        Text("\(Int((glassOpacity * 100).rounded()))%")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                            .frame(width: 40, alignment: .trailing)
-                    }
-                }
-            } header: {
-                Text("Glass")
-            } footer: {
-                Text("How solid the composer, the pills under it, and the slash menu are. Higher keeps text that scrolls underneath from showing through. The toolbar follows macOS.")
-                    .foregroundStyle(.secondary)
             }
             Section("Terminal") {
                 Toggle("Translucent background", isOn: $terminalTranslucent)

@@ -169,7 +169,7 @@ private struct PromptCard: View {
         }
         .padding(Self.padding)
         // Concentric: the corner circles' radius plus the padding around them.
-        .edenGlass(in: .rect(cornerRadius: Self.button / 2 + Self.padding))
+        .glassEffect(.regular, in: .rect(cornerRadius: Self.button / 2 + Self.padding))
         .acceptsAttachments($model.draftAttachments)
         // Typing, or sending, ends dictation without touching the message again.
         .onChange(of: model.draftText) { if dictation.isActive, model.draftText != dictation.written { dictation.abandon() } }
