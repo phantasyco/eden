@@ -1,10 +1,10 @@
 # Working on Eden
 
-Eden is a native macOS app (SwiftUI, macOS 26+) that runs coding agents in your projects (any folder; in a git repository, a session can also get its own worktree and diff). Read `README.md` for what it does and how it's laid out.
+Eden is a native macOS app (SwiftUI, macOS 26+) that runs coding agents in your projects (any folder; in a git repository, a session can also get its own worktree and diff). Read `README.md` for what it does, `docs/ARCHITECTURE.md` for how it talks to agents and how the code is laid out (the app in `App/`, UI-free code in `Packages/AgentKit` and `Packages/EdenRendering`), and `docs/USING.md` for how it behaves.
 
 ## Rules
 
-- **Swift only.** No Rust, no web views for Eden's own interface, no JavaScript. The only non-Swift file is the build script. (The Browser tab is the one WebKit view: it shows the user's own pages, like a dev server, not Eden's UI.) Dependencies must be Swift packages too; the one Eden uses is SwiftTerm, for the terminal.
+- **Swift only.** No Rust, no web views for Eden's own interface, no JavaScript. Build tooling is Swift too (`script/bundle.swift`, `script/make_icon.swift`); the only non-Swift files are configs, like the CI workflow. (The Browser tab is the one WebKit view: it shows the user's own pages, like a dev server, not Eden's UI.) Dependencies must be Swift packages too; the one Eden uses is SwiftTerm, for the terminal.
 - **Follow Apple's design.** PhantasyCo makes native Apple apps, so Eden should look and behave like Apple made it: the [Human Interface Guidelines](https://developer.apple.com/design/human-interface-guidelines/designing-for-macos), system controls, SF Symbols, and semantic fonts. Color accents with `.tint`, never a fixed color: the accent is the theme chosen in Settings (Eden green by default), and sidebar icons get the theme's color on the image itself (`.foregroundStyle(theme.color)`): `.listItemTint` left project folders in the system blue. Provider logos come from `BrandIcon`, and one-color marks draw as vector shapes (`SVGShape`), never bitmaps shrunk to size: a 24-point SVG rasterized and scaled down to 14 blurs thin strokes like OpenAI's knot. When in doubt, match Apple's own macOS apps (Messages, Mail, Image Playground, Help).
 - **Use Liquid Glass the way Apple does** (WWDC25 sessions 219, 356, 310):
   - Glass is for the floating control layer only (toolbar, composer, popovers), never for content like the transcript or diffs.
@@ -28,17 +28,20 @@ Eden is a native macOS app (SwiftUI, macOS 26+) that runs coding agents in your 
 ## Build and check
 
 ```sh
-swift build                       # compile; must finish with no errors
-./scripts/bundle.sh               # package build/Eden.app as "Eden Dev"
-open -n build/Eden.app            # run it next to the Eden you're using
+swift build --package-path App                    # compile; must finish with no errors
+swift test --package-path App                     # and the packages' tests, if you touched them
+swift script/bundle.swift                         # package build/Eden.app as "Eden Dev"
+open -n build/Eden.app                            # run it next to the Eden you're using
 ```
+
+Code with no UI or app state (processes, protocols, git, parsing) belongs in a package, with tests. See `docs/TESTING.md`.
 
 Eden Dev keeps its own settings and threads, so trying a build never touches the user's real ones. Don't pass `--install`; that replaces the user's /Applications/Eden.app.
 
 Test the agent engine without the UI:
 
 ```sh
-.build/debug/Eden --smoke <repo> <model id> "prompt" ["follow-up"]
+App/.build/debug/Eden --smoke <repo> <model id> "prompt" ["follow-up"]
 ```
 
 Use a cheap model for smoke tests (`claude-haiku-4-5`).

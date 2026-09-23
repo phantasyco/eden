@@ -1,0 +1,30 @@
+included:
+  - App/Sources
+  - App/Tests
+  - Packages
+excluded:
+  - "**/.build"
+disabled_rules:
+  - opening_brace
+  - trailing_comma
+  - todo
+line_length:
+  warning: 200
+  error: 260
+type_body_length:
+  warning: 800
+  error: 1500
+file_length:
+  warning: 1200
+  error: 2500
+function_body_length:
+  warning: 100
+  error: 250
+cyclomatic_complexity:
+  warning: 20
+  error: 40
+nesting:
+  type_level: 2
+  function_level: 3
+identifier_name:
+  min_length: 2
