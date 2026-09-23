@@ -2,6 +2,10 @@
 
 A native macOS workbench for coding agents, by PhantasyCo. Pick a model, describe a change, and Eden runs the agent in your project, or in a git worktree of its own, so several can work side by side. All Swift, no Electron.
 
+[![Eden with a finished session in the sidebar and the web app it changed open in the built-in browser. Click to watch the one-minute demo.](docs/demo.jpg)](https://x.com/qqfantaize/status/2102794000386457746)
+
+The one-minute demo (sound on): Opus 5.5 adds filters to a small web app, then the diff, the terminal, and the browser, all without leaving Eden. Opus 5.5 also drove Eden for the recording, filmed the takes, and edited them.
+
 - **Five agents, one app:** Claude Code, Codex, Cursor, Grok, and OpenCode, through their official CLIs and your own sign-ins.
 - **Built for the Mac:** SwiftUI and Liquid Glass, following Apple's design guidelines.
 - **Review before you commit:** a Changes tab with the diff, plus Files, a terminal, and a browser in the side panel.
