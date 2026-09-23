@@ -140,6 +140,9 @@ private struct DetailArea: View {
             }
         }
         .frame(minWidth: 320, maxWidth: .infinity, minHeight: 320, maxHeight: .infinity)
+        // Under the session and the panel alike, up through the toolbar; the
+        // sidebar keeps its own material.
+        .background { WindowBackdrop().ignoresSafeArea() }
         .toolbar {
             // Back and Forward at the leading edge, like Finder and Safari.
             // Always there, disabled when there's nowhere to go: toolbars

@@ -26,7 +26,7 @@ In a new session's model picker, **Compare Models** lets you check more models. 
 
 **Add Project on Another Machine** (in the sidebar's add menu and the File menu) takes a host from your SSH config and a folder on it. Eden then runs that project's agents, git, and terminal on the machine over SSH, with your own SSH config and keys: `ssh -T -o BatchMode=yes <host> 'exec "$SHELL" -lc "cd <folder> && exec claude …"'`, so the machine's login PATH finds `claude`, `codex`, and `git`. Connections to a host are shared (`ControlMaster`), so a diff refresh after each step doesn't pay for a new handshake, and BatchMode means Eden fails with SSH's own message instead of hanging on a password prompt. The machine needs Claude Code or Codex installed and signed in there. Remote projects show as "name @ host" and work in their checkout; new worktrees and attachments are this Mac's for now.
 
-Settings has three tabs: **General** (defaults for new sessions, notifications, the menu bar extra), **Appearance** (light or dark, an accent theme, and diff colors), and **Providers** (each CLI's version and sign-in, and which models the pickers show).
+Settings has three tabs: **General** (defaults for new sessions, notifications, the menu bar extra), **Appearance** (light or dark, an accent theme, how much of the desktop shows through the window, the terminal's background, and diff colors), and **Providers** (each CLI's version and sign-in, and which models the pickers show).
 
 ## Shortcuts
 

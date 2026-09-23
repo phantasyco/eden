@@ -153,7 +153,7 @@ struct BrowserPanel: View {
                 WebViewHost(webView: browser.webView)
                 if browser.url == nil {
                     // Nothing loaded yet: the panel's own background, not a white page.
-                    Color(nsColor: .windowBackgroundColor)
+                    WindowBackdrop(covers: true)
                 } else if let failure = browser.failure {
                     ContentUnavailableView {
                         Label("Can't Open the Page", systemImage: "globe")
@@ -163,7 +163,7 @@ struct BrowserPanel: View {
                         Button("Reload") { browser.reload() }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color(nsColor: .windowBackgroundColor))
+                    .background { WindowBackdrop(covers: true) }
                 }
             }
         }

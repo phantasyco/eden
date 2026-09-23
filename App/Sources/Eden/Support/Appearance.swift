@@ -24,6 +24,8 @@ enum Preferences {
     static let panelWidth = "panelWidth"
     static let terminalOpacity = "terminalOpacity"
     static let sessionPreviews = "sessionPreviews"
+    static let windowTranslucent = "windowTranslucent"
+    static let windowTranslucency = "windowTranslucency"
 }
 
 /// Light, dark, or whatever the Mac is set to.

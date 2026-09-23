@@ -90,6 +90,8 @@ private struct AppearanceSettings: View {
     @AppStorage(Preferences.diffColors) private var diffColors = DiffColors.redGreen
     @AppStorage(Preferences.terminalTranslucent) private var terminalTranslucent = true
     @AppStorage(Preferences.terminalOpacity) private var terminalOpacity = 0.8
+    @AppStorage(Preferences.windowTranslucent) private var windowTranslucent = false
+    @AppStorage(Preferences.windowTranslucency) private var windowTranslucency = 0.3
 
     var body: some View {
         Form {
@@ -112,6 +114,32 @@ private struct AppearanceSettings: View {
                     }
                 }
                 .padding(.vertical, 6)
+            }
+            Section {
+                Toggle("Translucent background", isOn: $windowTranslucent)
+                if windowTranslucent {
+                    LabeledContent("Translucency") {
+                        HStack(spacing: 8) {
+                            Slider(value: $windowTranslucency, in: 0...1) {
+                                Text("Translucency")
+                            } minimumValueLabel: {
+                                Image(systemName: "circle.fill")
+                            } maximumValueLabel: {
+                                Image(systemName: "circle.dotted")
+                            }
+                            .labelsHidden()
+                            Text("\(Int((windowTranslucency * 100).rounded()))%")
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                                .frame(width: 40, alignment: .trailing)
+                        }
+                    }
+                }
+            } header: {
+                Text("Window")
+            } footer: {
+                Text("How much of your desktop shows through behind sessions and the panel, blurred. The sidebar follows macOS.")
+                    .foregroundStyle(.secondary)
             }
             Section("Terminal") {
                 Toggle("Translucent background", isOn: $terminalTranslucent)

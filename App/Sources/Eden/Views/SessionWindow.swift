@@ -12,6 +12,7 @@ struct SessionWindow: View {
                 ThreadView(thread: thread)
             }
             .navigationTitle(thread.title)
+            .background { WindowBackdrop().ignoresSafeArea() }
             .frame(minWidth: 520, minHeight: 420)
         } else {
             ContentUnavailableView("Session Not Found", systemImage: "questionmark.bubble",
