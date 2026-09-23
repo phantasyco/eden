@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleName</key>
+	<string>Eden</string>
+	<key>CFBundleDisplayName</key>
+	<string>Eden</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.phantasyco.eden</string>
+	<key>CFBundleExecutable</key>
+	<string>Eden</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>26.0</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.developer-tools</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<!-- The Browser tab shows your dev servers and other sites, some over
+	     plain HTTP or on your local network. Eden's own traffic is unaffected. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Eden listens only while you dictate a message.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Eden turns what you say into the text of your message, on this Mac when it can.</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 PhantasyCo</string>
+</dict>
+</plist>
