@@ -37,6 +37,16 @@ struct TranscriptTests {
         #expect(Set(ends.keys) == ["a2"])
     }
 
+    @Test func checkpointsAreYourMessagesByTheirFirstLine() {
+        let items = Self.items + [TranscriptItem(id: "u3", kind: .user("  Next: the header\nwith the details below"))]
+        let checkpoints = Checkpoint.all(in: items)
+        #expect(checkpoints.map(\.id) == ["u1", "u2", "u3"])
+        #expect(checkpoints.last?.text == "Next: the header")
+        // Each is a row of its own, so the transcript can scroll to it.
+        let rows = Set(TranscriptRow.rows(items).map(\.id))
+        #expect(checkpoints.allSatisfy { rows.contains($0.id) })
+    }
+
     @MainActor
     @Test func aBranchCarriesTheConversationAsContext() {
         let context = AgentThread.context(of: Self.items)

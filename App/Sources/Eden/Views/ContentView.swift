@@ -168,6 +168,12 @@ private struct DetailArea: View {
                 }
                 .help("New Session (⌘N)")
             }
+            // Open in another app, for the session's folder or the project a
+            // new session will use. Always here, disabled without one, so the
+            // toolbar doesn't change as you switch between them.
+            ToolbarItem(placement: .primaryAction) {
+                OpenMenu(folder: openFolder)
+            }
             // Always the last items, like the inspector button in Xcode and Pages:
             // Expand, then the panel itself.
             ToolbarItemGroup(placement: .primaryAction) {
@@ -191,6 +197,16 @@ private struct DetailArea: View {
                 .help("Show or hide Changes, Files, Terminal, and Browser (⌥⌘B)")
             }
         }
+    }
+
+    /// The folder Open opens: the session's worktree or checkout, or the
+    /// project picked for a new session. None for a folder on another
+    /// machine, which apps on this Mac can't open.
+    private var openFolder: URL? {
+        if let thread = model.selectedThread {
+            return thread.repo.machine.isLocal ? thread.worktree ?? thread.repo.url : nil
+        }
+        return model.draftRepo.flatMap { $0.machine.isLocal ? $0.url : nil }
     }
 
     /// How the panel slides: a spring, so a second click mid-slide turns it

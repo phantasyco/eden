@@ -12,6 +12,11 @@ struct SessionWindow: View {
                 ThreadView(thread: thread)
             }
             .navigationTitle(thread.title)
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    OpenMenu(folder: thread.repo.machine.isLocal ? thread.worktree ?? thread.repo.url : nil)
+                }
+            }
             .background { WindowBackdrop().ignoresSafeArea() }
             .frame(minWidth: 520, minHeight: 420)
         } else {

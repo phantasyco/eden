@@ -31,16 +31,9 @@ struct ThreadView: View {
         // toolbar content, and changing it near the truncation point made the
         // column's size limits oscillate until AppKit aborted.
         .navigationTitle(thread.repo.title)
-        .toolbar {
-            // The same items at all times. Adding and removing items as a
-            // session starts and stops resized the toolbar mid-layout and crashed.
-            ToolbarItemGroup {
-                OpenMenu(folder: thread.worktree ?? thread.repo.url)
-                    // Apps on this Mac can't open a folder on another machine.
-                    .disabled(!thread.repo.machine.isLocal)
-                MoreMenu(thread: thread)
-            }
-        }
+        // Open lives in the window's toolbar (DetailArea, SessionWindow), not
+        // here: items added by the session came and went as you switched
+        // between it and the new-session screen.
         .onAppear { composerFocused = true }
         // Restored threads don't save their diff; read it from the worktree.
         .task { await thread.refreshDiff() }
@@ -383,9 +376,11 @@ struct ContextGauge: View {
     }
 }
 
-/// "Open in" for the thread's folder, listing only the apps that are installed.
-private struct OpenMenu: View {
-    let folder: URL
+/// "Open in" for the working folder, listing only the apps that are
+/// installed. Disabled with no folder, or one on another machine: apps on
+/// this Mac can't open it.
+struct OpenMenu: View {
+    let folder: URL?
 
     private static let apps: [(name: String, bundleID: String)] = [
         ("Ghostty", "com.mitchellh.ghostty"),
@@ -398,18 +393,20 @@ private struct OpenMenu: View {
 
     var body: some View {
         Menu {
-            Button {
-                NSWorkspace.shared.activateFileViewerSelecting([folder])
-            } label: {
-                Label { Text("Finder") } icon: { AppIcon(bundleID: "com.apple.finder") }
-            }
-            Divider()
-            ForEach(Self.apps, id: \.bundleID) { app in
-                if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleID) {
-                    Button {
-                        NSWorkspace.shared.open([folder], withApplicationAt: url, configuration: NSWorkspace.OpenConfiguration())
-                    } label: {
-                        Label { Text(app.name) } icon: { AppIcon(bundleID: app.bundleID) }
+            if let folder {
+                Button {
+                    NSWorkspace.shared.activateFileViewerSelecting([folder])
+                } label: {
+                    Label { Text("Finder") } icon: { AppIcon(bundleID: "com.apple.finder") }
+                }
+                Divider()
+                ForEach(Self.apps, id: \.bundleID) { app in
+                    if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleID) {
+                        Button {
+                            NSWorkspace.shared.open([folder], withApplicationAt: url, configuration: NSWorkspace.OpenConfiguration())
+                        } label: {
+                            Label { Text(app.name) } icon: { AppIcon(bundleID: app.bundleID) }
+                        }
                     }
                 }
             }
@@ -417,6 +414,7 @@ private struct OpenMenu: View {
             Label("Open", systemImage: "arrow.up.forward.app")
         }
         .help("Open the working folder in another app")
+        .disabled(folder == nil)
     }
 }
 
@@ -431,23 +429,6 @@ private struct AppIcon: View {
                 icon.size = NSSize(width: 16, height: 16)
                 return icon
             }())
-        }
-    }
-}
-
-private struct MoreMenu: View {
-    @Environment(AppModel.self) private var model
-    let thread: AgentThread
-
-    var body: some View {
-        Menu {
-            Button("Review Changes", systemImage: "plus.forwardslash.minus") { model.openPanel(.changes) }
-            Button("Open Terminal", systemImage: "apple.terminal") { model.openPanel(.terminal) }
-            Divider()
-            // The same actions as the session's row in the sidebar.
-            ThreadMenu(thread: thread)
-        } label: {
-            Label("More", systemImage: "ellipsis")
         }
     }
 }
@@ -467,122 +448,156 @@ struct TranscriptView: View {
     @State private var userScrolling = false
     /// The agent wrote more while you were scrolled up.
     @State private var unseen = false
+    /// Which of your messages you've read past, for the history rail.
+    @State private var tracker = CheckpointTracker()
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// How far below the top of the transcript a message counts as read past.
+    private static let readingLine: CGFloat = 150
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 14) {
-                ThreadHeader(thread: thread)
-                if thread.items.isEmpty {
-                    EmptyThreadHint(thread: thread)
-                }
-                let rows = TranscriptRow.rows(thread.items)
-                let ends = TurnEnd.find(in: rows, running: thread.isRunning)
-                let lastUser = thread.canRewriteLast ? thread.items.last(where: \.isUser)?.id : nil
-                let lastEnd = rows.last { ends[$0.id] != nil }?.id
-                ForEach(rows) { row in
-                    switch row {
-                    case .item(let item):
-                        if case .user = item.kind {
-                            // Centered timestamps between turns, like Messages.
-                            Text(timestamp(item.date))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.top, 10)
-                        }
-                        if case .tool(let call) = item.kind, ClaudeEvents.isAgentTool(call.name), thread.subagents[item.id] != nil {
-                            SubagentCard(thread: thread, id: item.id)
-                        } else {
-                            ItemView(item: item, retry: item.id == thread.items.last?.id && thread.canRetry ? { thread.retry() } : nil,
-                                     edit: item.id == lastUser ? { thread.rewriteLastMessage($0) } : nil)
-                        }
-                    case .steps(let id, let items):
-                        StepGroupView(items: items, live: thread.isRunning && id == rows.last?.id)
+        // The reader is for the history rail's jumps; following the bottom
+        // uses `position`.
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 14) {
+                    ThreadHeader(thread: thread)
+                    if thread.items.isEmpty {
+                        EmptyThreadHint(thread: thread)
                     }
-                    // The agent's reply ends here: Copy, Branch, and when.
-                    if let end = ends[row.id] {
-                        TurnActions(end: end,
-                                    regenerate: row.id == lastEnd && lastUser != nil ? { regenerate() } : nil) {
-                            model.branch(thread, after: end.itemID)
+                    let rows = TranscriptRow.rows(thread.items)
+                    let ends = TurnEnd.find(in: rows, running: thread.isRunning)
+                    let lastUser = thread.canRewriteLast ? thread.items.last(where: \.isUser)?.id : nil
+                    let lastEnd = rows.last { ends[$0.id] != nil }?.id
+                    ForEach(rows) { row in
+                        switch row {
+                        case .item(let item):
+                            if case .user = item.kind {
+                                // Centered timestamps between turns, like Messages.
+                                Text(timestamp(item.date))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.top, 10)
+                                    .onGeometryChange(for: Bool.self) { $0.frame(in: .scrollView).minY < Self.readingLine } action: {
+                                        tracker.passed[item.id] = $0
+                                    }
+                            }
+                            if case .tool(let call) = item.kind, ClaudeEvents.isAgentTool(call.name), thread.subagents[item.id] != nil {
+                                SubagentCard(thread: thread, id: item.id)
+                            } else {
+                                ItemView(item: item, retry: item.id == thread.items.last?.id && thread.canRetry ? { thread.retry() } : nil,
+                                         edit: item.id == lastUser ? { thread.rewriteLastMessage($0) } : nil)
+                            }
+                        case .steps(let id, let items):
+                            StepGroupView(items: items, live: thread.isRunning && id == rows.last?.id)
+                        }
+                        // The agent's reply ends here: Copy, Branch, and when.
+                        if let end = ends[row.id] {
+                            TurnActions(end: end,
+                                        regenerate: row.id == lastEnd && lastUser != nil ? { regenerate() } : nil) {
+                                model.branch(thread, after: end.itemID)
+                            }
                         }
                     }
+                    TurnStatus(thread: thread)
+                    if !thread.isRunning, thread.diffStats.files > 0 {
+                        ChangesCard(stats: thread.diffStats) { model.openPanel(.changes) }
+                    }
                 }
-                TurnStatus(thread: thread)
-                if !thread.isRunning, thread.diffStats.files > 0 {
-                    ChangesCard(stats: thread.diffStats) { model.openPanel(.changes) }
-                }
+                .padding(20)
+                .frame(maxWidth: 800, alignment: .leading)
+                .frame(maxWidth: .infinity)
             }
-            .padding(20)
-            .frame(maxWidth: 800, alignment: .leading)
-            .frame(maxWidth: .infinity)
-        }
-        // Clear of the panel without changing the scroll view's size (see DetailArea).
-        .contentMargins(.trailing, panelInset, for: .scrollContent)
-        .scrollPosition($position)
-        // A session opens on its latest messages, like Messages.
-        .defaultScrollAnchor(.bottom, for: .initialOffset)
-        .onScrollPhaseChange { _, phase in
-            userScrolling = phase == .interacting || phase == .decelerating
-        }
-        // Scrolling up, by hand, stops following; scrolling down doesn't,
-        // and neither does the bounce back after scrolling past the end.
-        .onScrollGeometryChange(for: [CGFloat].self) { geometry in
-            [geometry.contentOffset.y, Self.bottomOffset(geometry)]
-        } action: { old, new in
-            if userScrolling, new[0] < old[0] - 1, old[0] <= old[1] + 1 { following = false }
-        }
-        // At the bottom again, it follows again.
-        .onScrollGeometryChange(for: Bool.self) { geometry in
-            geometry.contentOffset.y >= Self.bottomOffset(geometry) - 24
-        } action: { _, bottom in
-            atBottom = bottom
-            if bottom {
-                following = true
-                unseen = false
+            // Clear of the panel without changing the scroll view's size (see DetailArea).
+            .contentMargins(.trailing, panelInset, for: .scrollContent)
+            // Room for the history rail when the transcript fills the width. It
+            // stays the same whether the rail shows or not (see AGENTS.md).
+            .contentMargins(.leading, 16, for: .scrollContent)
+            .scrollPosition($position)
+            // A session opens on its latest messages, like Messages.
+            .defaultScrollAnchor(.bottom, for: .initialOffset)
+            .onScrollPhaseChange { _, phase in
+                userScrolling = phase == .interacting || phase == .decelerating
             }
-        }
-        // Text streaming into the last message grows the content without
-        // adding an item; following keeps the newest line in view.
-        .onScrollGeometryChange(for: CGFloat.self) { $0.contentSize.height } action: { old, new in
-            guard new > old else { return }
-            // Only `following` decides: the scroll phase can stay "interacting"
-            // after a swipe ends, which left a transcript you'd scrolled back
-            // down to sitting still.
-            guard following else {
-                unseen = true
-                return
+            // Scrolling up, by hand, stops following; scrolling down doesn't,
+            // and neither does the bounce back after scrolling past the end.
+            .onScrollGeometryChange(for: [CGFloat].self) { geometry in
+                [geometry.contentOffset.y, Self.bottomOffset(geometry)]
+            } action: { old, new in
+                if userScrolling, new[0] < old[0] - 1, old[0] <= old[1] + 1 { following = false }
             }
-            position.scrollTo(edge: .bottom)
-        }
-        .onChange(of: thread.items.count) {
-            // Your own message always brings you to the bottom.
-            if case .user = thread.items.last?.kind { following = true }
-            guard following else { return }
-            withAnimation(.easeOut(duration: 0.15)) { position.scrollTo(edge: .bottom) }
-        }
-        .overlay(alignment: .bottom) {
-            if !following && !atBottom {
-                // A pill, like Messages' jump to new messages.
-                Button {
+            // At the bottom again, it follows again.
+            .onScrollGeometryChange(for: Bool.self) { geometry in
+                geometry.contentOffset.y >= Self.bottomOffset(geometry) - 24
+            } action: { _, bottom in
+                atBottom = bottom
+                if bottom {
                     following = true
                     unseen = false
-                    withAnimation(.easeOut(duration: 0.2)) { position.scrollTo(edge: .bottom) }
-                } label: {
-                    Label(unseen ? "New Messages" : "Scroll to Bottom", systemImage: "arrow.down")
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .contentShape(Capsule())
                 }
-                .buttonStyle(.plain)
-                // Clear glass, not the accent: the tint is for Send.
-                .glassEffect(.regular.interactive(), in: .capsule)
-                .padding(.bottom, 12)
-                // Centered in the part the panel leaves visible.
-                .padding(.trailing, panelInset)
-                .transition(.opacity)
             }
+            // Text streaming into the last message grows the content without
+            // adding an item; following keeps the newest line in view.
+            .onScrollGeometryChange(for: CGFloat.self) { $0.contentSize.height } action: { old, new in
+                guard new > old else { return }
+                // Only `following` decides: the scroll phase can stay "interacting"
+                // after a swipe ends, which left a transcript you'd scrolled back
+                // down to sitting still.
+                guard following else {
+                    unseen = true
+                    return
+                }
+                position.scrollTo(edge: .bottom)
+            }
+            .onChange(of: thread.items.count) {
+                // Your own message always brings you to the bottom.
+                if case .user = thread.items.last?.kind { following = true }
+                guard following else { return }
+                withAnimation(.easeOut(duration: 0.15)) { position.scrollTo(edge: .bottom) }
+            }
+            .overlay(alignment: .leading) {
+                let checkpoints = Checkpoint.all(in: thread.items)
+                if checkpoints.count > 1 {
+                    HistoryRail(checkpoints: checkpoints, tracker: tracker, atBottom: atBottom) { jump(to: $0, with: proxy) }
+                }
+            }
+            .overlay(alignment: .bottom) {
+                if !following && !atBottom {
+                    // A pill, like Messages' jump to new messages.
+                    Button {
+                        following = true
+                        unseen = false
+                        withAnimation(.easeOut(duration: 0.2)) { position.scrollTo(edge: .bottom) }
+                    } label: {
+                        Label(unseen ? "New Messages" : "Scroll to Bottom", systemImage: "arrow.down")
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    // Clear glass, not the accent: the tint is for Send.
+                    .glassEffect(.regular.interactive(), in: .capsule)
+                    .padding(.bottom, 12)
+                    // Centered in the part the panel leaves visible.
+                    .padding(.trailing, panelInset)
+                    .transition(.opacity)
+                }
+            }
+            .animation(.easeOut(duration: 0.15), value: following || atBottom)
         }
-        .animation(.easeOut(duration: 0.15), value: following || atBottom)
+    }
+
+    /// Scrolls to one of your messages. It stops following the bottom, like
+    /// scrolling up by hand, so new text doesn't pull you away; Scroll to
+    /// Bottom (or New Messages) brings you back.
+    private func jump(to checkpoint: Checkpoint, with proxy: ScrollViewProxy) {
+        following = false
+        if reduceMotion {
+            proxy.scrollTo(checkpoint.id, anchor: .top)
+        } else {
+            withAnimation(.smooth(duration: 0.35)) { proxy.scrollTo(checkpoint.id, anchor: .top) }
+        }
     }
 
     /// Runs your last message again, as it is.
